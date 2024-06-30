@@ -32,26 +32,38 @@ dsrm() {
 
 dp() {
     container=$(get_container_name "$1")
-
-    docker inspect --format='{{range $p, $conf := .NetworkSettings.Ports}} {{$p}}  {{end}}' "${container}"
+    docker inspect "${container}" | jq -r '.[].NetworkSettings.Ports.[]' | jq '.[].HostPort' | uniq
 }
 
 durl() {
     container=$(get_container_name "$1")
-
-    res=$(docker inspect --format='{{range $p, $conf := .NetworkSettings.Ports}}{{$p}};{{end}}' "${container}")
-    IFS=";" read -rA ports <<< "$res"
+    res=$(docker inspect "${container}"| jq -r '.[].NetworkSettings.Ports.[]' | jq '.[].HostPort' | uniq)
 
     declare -a array
-    for a in $ports; do
-        array+=(`echo $a | cut -d'/' -f1`)
-    done
+
+    while IFS= read -r line; do
+        array+=(${line:1:-1})
+    done <<< "$res"
+
+    echo $array
     port=$(printf "%s\n" "${array[@]}" | fzf)
     url="http://localhost:"
     url+=$port
     echo $url
     xdg-open $url >/dev/null
 
+}
+
+dl () {
+    container=$(get_container_name "$1")
+
+    docker logs "${container}"
+}
+
+dlf () {
+    container=$(get_container_name "$1")
+
+    docker logs "${container}" -f
 }
 
 get_container_name(){
